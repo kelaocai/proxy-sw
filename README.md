@@ -1,5 +1,7 @@
 # proxy-sw
 
+English | [中文](README.zh.md)
+
 `proxy-sw` is a macOS-first CLI for managing terminal proxy environment variables for local proxy tools like Clash.
 
 ## Scope
@@ -26,6 +28,12 @@ Out of scope for v1:
 ```bash
 brew tap kelaocai/tap
 brew install proxy-sw
+```
+
+After install, `proxy-sw` reads and writes its default config at:
+
+```text
+~/.config/proxy-sw/config.yaml
 ```
 
 Until the first tagged release is published, build locally:
@@ -66,6 +74,8 @@ proxy-sw detect
 proxy-sw doctor
 ```
 
+This saves your proxy defaults to `~/.config/proxy-sw/config.yaml`, and `proxy-sw on` writes the managed proxy block into your shell config file such as `~/.zshrc`.
+
 Turn it off later with:
 
 ```bash
@@ -82,7 +92,7 @@ Advanced usage:
 
 ## Config
 
-Default config path:
+Default config path used by `set`, `on`, `status`, `detect`, `doctor`, and `system`:
 
 ```text
 ~/.config/proxy-sw/config.yaml
