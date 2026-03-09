@@ -42,7 +42,7 @@ jobs:
       - name: Commit and push formula update
         working-directory: tap
         run: |
-          if git diff --quiet; then
+          if [ -z "$(git status --short -- Formula/proxy-sw.rb)" ]; then
             echo "No formula change"
             exit 0
           fi
