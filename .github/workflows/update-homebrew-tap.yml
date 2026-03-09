@@ -1,0 +1,53 @@
+name: update-homebrew-tap
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  sync-formula:
+    runs-on: ubuntu-latest
+    env:
+      TAP_REPO: kelaocai/homebrew-tap
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+
+      - name: Update formula in source repo
+        run: |
+          scripts/update_homebrew_formula.sh "${GITHUB_REF_NAME}" "kelaocai" "proxy-sw"
+
+      - name: Validate HOMEBREW_TAP_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "Missing repository secret: HOMEBREW_TAP_TOKEN"
+            exit 1
+          fi
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TAP_REPO }}
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Copy formula into tap
+        run: |
+          mkdir -p tap/Formula
+          cp packaging/homebrew/proxy-sw.rb tap/Formula/proxy-sw.rb
+
+      - name: Commit and push formula update
+        working-directory: tap
+        run: |
+          if git diff --quiet; then
+            echo "No formula change"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/proxy-sw.rb
+          git commit -m "chore: update proxy-sw formula for ${GITHUB_REF_NAME}"
+          git push
