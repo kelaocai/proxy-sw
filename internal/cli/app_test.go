@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/kelaocai/proxy-sw/internal/network"
 )
 
 func TestExitCode(t *testing.T) {
@@ -36,6 +38,24 @@ func TestHelpShowsTopLevelListAndUse(t *testing.T) {
 	}
 	if strings.Contains(got, "service list") || strings.Contains(got, "service use") {
 		t.Fatalf("help still contains legacy service commands: %s", got)
+	}
+}
+
+func TestPreserveCustomNoProxy(t *testing.T) {
+	networks := []network.LocalNetwork{{NetworkCIDR: "192.168.2.0/24"}}
+	got := preserveCustomNoProxy(
+		"localhost,127.0.0.1,192.168.2.0/24,custom.internal,*.home.arpa",
+		networks,
+		[]string{"preconfigured.local", "*.home.arpa"},
+	)
+	want := []string{"preconfigured.local", "*.home.arpa", "custom.internal"}
+	if len(got) != len(want) {
+		t.Fatalf("len(got) = %d, want %d (%+v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d] = %q, want %q", i, got[i], want[i])
+		}
 	}
 }
 

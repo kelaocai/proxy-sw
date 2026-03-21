@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 )
 
 type LocalNetwork struct {
@@ -81,8 +82,8 @@ func DetectLocalNetworksWith(provider InterfaceProvider) ([]LocalNetwork, error)
 	return networks, nil
 }
 
-func GenerateNoProxyList(networks []LocalNetwork, custom []string) []string {
-	base := []string{
+func BaseNoProxyList() []string {
+	return []string{
 		"localhost",
 		"127.0.0.1",
 		"::1",
@@ -91,9 +92,14 @@ func GenerateNoProxyList(networks []LocalNetwork, custom []string) []string {
 		"172.16.0.0/12",
 		"192.168.0.0/16",
 	}
+}
+
+func GenerateNoProxyList(networks []LocalNetwork, custom []string) []string {
+	base := BaseNoProxyList()
 	seen := map[string]bool{}
 	out := make([]string, 0, len(base)+len(networks)+len(custom))
 	appendUnique := func(value string) {
+		value = strings.TrimSpace(value)
 		if value == "" || seen[value] {
 			return
 		}
@@ -108,6 +114,46 @@ func GenerateNoProxyList(networks []LocalNetwork, custom []string) []string {
 	}
 	for _, value := range custom {
 		appendUnique(value)
+	}
+	return out
+}
+
+func ParseNoProxyCSV(value string) []string {
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	seen := map[string]bool{}
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" || seen[part] {
+			continue
+		}
+		seen[part] = true
+		out = append(out, part)
+	}
+	return out
+}
+
+func UserCustomNoProxy(existing []string, networks []LocalNetwork) []string {
+	auto := GenerateNoProxyList(networks, nil)
+	autoSet := make(map[string]struct{}, len(auto))
+	for _, value := range auto {
+		autoSet[value] = struct{}{}
+	}
+	out := make([]string, 0, len(existing))
+	seen := map[string]bool{}
+	for _, value := range existing {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		if _, ok := autoSet[value]; ok {
+			continue
+		}
+		out = append(out, value)
 	}
 	return out
 }

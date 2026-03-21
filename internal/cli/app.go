@@ -111,6 +111,11 @@ func (a App) runOn(args []string) error {
 		return err
 	}
 	cfg.ShellType = string(shellType)
+	existingCustom, err := a.existingCustomNoProxy(shellPath, shellType)
+	if err != nil {
+		return exitError{code: 1, err: err}
+	}
+	cfg.NoProxyCustom = mergeStrings(cfg.NoProxyCustom, existingCustom)
 	noProxy, _, err := a.currentNoProxy(cfg.NoProxyCustom)
 	if err != nil {
 		return exitError{code: 1, err: err}
@@ -453,6 +458,28 @@ func (a App) currentNoProxy(custom []string) ([]string, []network.LocalNetwork, 
 	return network.GenerateNoProxyList(networks, custom), networks, nil
 }
 
+func (a App) existingCustomNoProxy(path string, shellType shell.Type) ([]string, error) {
+	status, err := a.shellManager.Status(path, shellType)
+	if err != nil {
+		return nil, err
+	}
+	if !status.BlockExists {
+		return nil, nil
+	}
+	existing := status.Values["NO_PROXY"]
+	if existing == "" {
+		existing = status.Values["no_proxy"]
+	}
+	if existing == "" {
+		return nil, nil
+	}
+	networks, err := network.DetectLocalNetworks()
+	if err != nil {
+		return nil, err
+	}
+	return preserveCustomNoProxy(existing, networks, nil), nil
+}
+
 func (a App) renderShellStatus(path string, shellType shell.Type) error {
 	status, err := a.shellManager.Status(path, shellType)
 	if err != nil {
@@ -517,6 +544,27 @@ func isTerminal(w io.Writer) bool {
 		return false
 	}
 	return (info.Mode()&os.ModeCharDevice) != 0 && fdw.Fd() == os.Stdout.Fd()
+}
+
+func mergeStrings(parts ...[]string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, items := range parts {
+		for _, item := range items {
+			item = strings.TrimSpace(item)
+			if item == "" || seen[item] {
+				continue
+			}
+			seen[item] = true
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func preserveCustomNoProxy(existingCSV string, networks []network.LocalNetwork, configured []string) []string {
+	existingCustom := network.UserCustomNoProxy(network.ParseNoProxyCSV(existingCSV), networks)
+	return mergeStrings(configured, existingCustom)
 }
 
 func completionScript(shellName string) (string, error) {

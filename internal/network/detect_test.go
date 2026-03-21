@@ -62,3 +62,36 @@ func TestGenerateNoProxyList(t *testing.T) {
 		t.Fatalf("unexpected no_proxy list: %+v", got)
 	}
 }
+
+func TestParseNoProxyCSV(t *testing.T) {
+	got := ParseNoProxyCSV(" localhost, 127.0.0.1,localhost, ,*.home.arpa ")
+	want := []string{"localhost", "127.0.0.1", "*.home.arpa"}
+	if len(got) != len(want) {
+		t.Fatalf("len(got) = %d, want %d (%+v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestUserCustomNoProxy(t *testing.T) {
+	networks := []LocalNetwork{{NetworkCIDR: "192.168.2.0/24"}}
+	got := UserCustomNoProxy([]string{
+		"localhost",
+		"192.168.2.0/24",
+		"*.home.arpa",
+		"nas.local",
+		"*.home.arpa",
+	}, networks)
+	want := []string{"*.home.arpa", "nas.local"}
+	if len(got) != len(want) {
+		t.Fatalf("len(got) = %d, want %d (%+v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}

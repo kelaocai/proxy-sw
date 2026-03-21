@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-03-21
+
+### Fixed
+- Preserve user-added `NO_PROXY` entries when `proxy-sw on` rewrites the managed shell block
+
+### Added
+- Regression coverage for parsing and preserving custom `no_proxy` values
+
+## [0.1.1] - 2026-03-09
+
 ### Changed
 - Repositioned `proxy-sw` as a shell-first proxy environment manager
 - Moved macOS system proxy controls under `proxy-sw system ...`

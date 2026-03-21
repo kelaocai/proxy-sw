@@ -59,3 +59,21 @@ func TestStatusParsesValues(t *testing.T) {
 		t.Fatalf("unexpected status: %+v", status)
 	}
 }
+
+func TestStatusParsesUppercaseNoProxy(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".zshrc")
+	content := ManagedStart + "\n" +
+		`export NO_PROXY="localhost,127.0.0.1,*.home.arpa"` + "\n" +
+		ManagedEnd + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	status, err := NewManager().Status(path, Zsh)
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if got := status.Values["NO_PROXY"]; got != "localhost,127.0.0.1,*.home.arpa" {
+		t.Fatalf("NO_PROXY = %q", got)
+	}
+}
