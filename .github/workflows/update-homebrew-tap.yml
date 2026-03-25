@@ -8,6 +8,8 @@ on:
 jobs:
   sync-formula:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       TAP_REPO: kelaocai/homebrew-tap
     steps:
@@ -17,6 +19,12 @@ jobs:
       - name: Update formula in source repo
         run: |
           scripts/update_homebrew_formula.sh "${GITHUB_REF_NAME}" "kelaocai" "proxy-sw"
+
+      - name: Checkout source main branch
+        uses: actions/checkout@v4
+        with:
+          path: source-main
+          ref: main
 
       - name: Validate HOMEBREW_TAP_TOKEN
         env:
@@ -38,6 +46,24 @@ jobs:
         run: |
           mkdir -p tap/Formula
           cp packaging/homebrew/proxy-sw.rb tap/Formula/proxy-sw.rb
+
+      - name: Copy formula back into source repo main
+        run: |
+          mkdir -p source-main/packaging/homebrew
+          cp packaging/homebrew/proxy-sw.rb source-main/packaging/homebrew/proxy-sw.rb
+
+      - name: Commit formula update in source repo
+        working-directory: source-main
+        run: |
+          if [ -z "$(git status --short -- packaging/homebrew/proxy-sw.rb)" ]; then
+            echo "No source repo formula change"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packaging/homebrew/proxy-sw.rb
+          git commit -m "chore: update bundled formula for ${GITHUB_REF_NAME}"
+          git push
 
       - name: Commit and push formula update
         working-directory: tap

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Keep the bundled Homebrew formula in the source repository in sync during tagged releases
+
+### Changed
+- Document `brew update && brew upgrade proxy-sw` for upgrading existing Homebrew installs
+
 ## [0.1.3] - 2026-03-25
 
 ### Fixed

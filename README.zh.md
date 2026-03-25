@@ -30,6 +30,13 @@ brew tap kelaocai/tap
 brew install proxy-sw
 ```
 
+如果本地已经安装过旧版本，升级要用：
+
+```bash
+brew update
+brew upgrade proxy-sw
+```
+
 安装后，`proxy-sw` 默认会从这里读取和保存配置：
 
 ```text

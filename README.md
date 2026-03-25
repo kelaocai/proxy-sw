@@ -30,6 +30,13 @@ brew tap kelaocai/tap
 brew install proxy-sw
 ```
 
+When upgrading from an older installed version, run:
+
+```bash
+brew update
+brew upgrade proxy-sw
+```
+
 After install, `proxy-sw` reads and writes its default config at:
 
 ```text
