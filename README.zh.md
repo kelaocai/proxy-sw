@@ -130,7 +130,8 @@ network_service: Wi-Fi
 - `on` 会根据当前本地网络自动重新生成 `no_proxy`
 - `set --no-proxy-add a,b` 可追加自定义 `no_proxy` 规则
 - `set --no-proxy-clear-custom` 可清空自定义 `no_proxy`
-- `proxy-sw system on|off|status` 用于显式管理 macOS 系统代理
+- `proxy-sw system on|off|status` 用于显式管理 macOS 系统代理，`system on` 也会把生成出的 `no_proxy` 同步到系统 bypass domains
+- `proxy-sw system status` 会显示当前 macOS 系统里的 bypass domains
 - `proxy-sw list` 和 `proxy-sw use "Wi-Fi"` 主要用于 `proxy-sw system ...`
 
 ## 发布

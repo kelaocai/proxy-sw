@@ -106,16 +106,10 @@ func (a App) runOn(args []string) error {
 	}
 	cfg.Host = *host
 	cfg.Port = *port
-	shellType, shellPath, err := a.resolveShell(cfg)
+	cfg, shellType, shellPath, err := a.mergeShellCustomNoProxy(cfg)
 	if err != nil {
 		return err
 	}
-	cfg.ShellType = string(shellType)
-	existingCustom, err := a.existingCustomNoProxy(shellPath, shellType)
-	if err != nil {
-		return exitError{code: 1, err: err}
-	}
-	cfg.NoProxyCustom = mergeStrings(cfg.NoProxyCustom, existingCustom)
 	noProxy, _, err := a.currentNoProxy(cfg.NoProxyCustom)
 	if err != nil {
 		return exitError{code: 1, err: err}
@@ -335,12 +329,26 @@ func (a App) runSystemOn(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return exitError{code: 2, err: err}
 	}
+	cfg.Host = *host
+	cfg.Port = *port
+	cfg, _, _, err = a.mergeShellCustomNoProxy(cfg)
+	if err != nil {
+		return err
+	}
 	resolvedService, err := a.resolveService(*service)
 	if err != nil {
 		return err
 	}
-	if err := a.system.Enable(resolvedService, *host, *port); err != nil {
+	noProxy, _, err := a.currentNoProxy(cfg.NoProxyCustom)
+	if err != nil {
 		return exitError{code: 1, err: err}
+	}
+	if err := a.system.Enable(resolvedService, *host, *port, noProxy); err != nil {
+		return exitError{code: 1, err: err}
+	}
+	cfg.NetworkService = resolvedService
+	if err := a.saveConfig(cfg); err != nil {
+		return err
 	}
 	return a.renderSystemStatus(config.Config{Host: *host, Port: *port, NetworkService: resolvedService})
 }
@@ -478,6 +486,20 @@ func (a App) existingCustomNoProxy(path string, shellType shell.Type) ([]string,
 		return nil, err
 	}
 	return preserveCustomNoProxy(existing, networks, nil), nil
+}
+
+func (a App) mergeShellCustomNoProxy(cfg config.Config) (config.Config, shell.Type, string, error) {
+	shellType, shellPath, err := a.resolveShell(cfg)
+	if err != nil {
+		return cfg, "", "", err
+	}
+	cfg.ShellType = string(shellType)
+	existingCustom, err := a.existingCustomNoProxy(shellPath, shellType)
+	if err != nil {
+		return cfg, "", "", exitError{code: 1, err: err}
+	}
+	cfg.NoProxyCustom = mergeStrings(cfg.NoProxyCustom, existingCustom)
+	return cfg, shellType, shellPath, nil
 }
 
 func (a App) renderShellStatus(path string, shellType shell.Type) error {

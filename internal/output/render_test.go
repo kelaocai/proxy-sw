@@ -18,6 +18,7 @@ func TestRendererStatusPlain(t *testing.T) {
 		Web:            macos.ProxyState{Available: true, Enabled: true, Server: "127.0.0.1", Port: 7897},
 		HTTPS:          macos.ProxyState{Available: true, Enabled: false},
 		SOCKS:          macos.ProxyState{Available: false},
+		BypassDomains:  []string{"localhost", "*.home.arpa"},
 	}
 	if err := renderer.SystemStatus(&out, status, "127.0.0.1", 7897); err != nil {
 		t.Fatalf("SystemStatus() error = %v", err)
@@ -28,6 +29,8 @@ func TestRendererStatusPlain(t *testing.T) {
 		"web    on",
 		"https  off",
 		"socks  unavailable",
+		"bypass",
+		"*.home.arpa",
 		"127.0.0.1:7897",
 	} {
 		if !strings.Contains(got, want) {

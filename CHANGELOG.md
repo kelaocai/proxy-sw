@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-03-25
+
+### Fixed
+- Sync generated `no_proxy` entries into macOS proxy bypass domains when running `proxy-sw system on`
+- Preserve custom `no_proxy` entries recovered from the managed shell block when `proxy-sw system on` regenerates system bypass domains
+
+### Added
+- Show macOS proxy bypass domains in `proxy-sw system status`
+
 ## [0.1.2] - 2026-03-21
 
 ### Fixed

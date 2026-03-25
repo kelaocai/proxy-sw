@@ -35,6 +35,7 @@ type Status struct {
 	Web            ProxyState
 	HTTPS          ProxyState
 	SOCKS          ProxyState
+	BypassDomains  []string
 }
 
 type Manager struct {
@@ -82,7 +83,7 @@ func (m Manager) DetectService() (string, error) {
 	return services[0], nil
 }
 
-func (m Manager) Enable(service, host string, port int) error {
+func (m Manager) Enable(service, host string, port int, bypassDomains []string) error {
 	commands := [][]string{
 		{"-setwebproxy", service, host, strconv.Itoa(port)},
 		{"-setsecurewebproxy", service, host, strconv.Itoa(port)},
@@ -90,6 +91,11 @@ func (m Manager) Enable(service, host string, port int) error {
 		{"-setwebproxystate", service, "on"},
 		{"-setsecurewebproxystate", service, "on"},
 		{"-setsocksfirewallproxystate", service, "on"},
+	}
+	if len(bypassDomains) == 0 {
+		commands = append(commands, []string{"-setproxybypassdomains", service, "Empty"})
+	} else {
+		commands = append(commands, append([]string{"-setproxybypassdomains", service}, bypassDomains...))
 	}
 	return m.runBatch(commands)
 }
@@ -116,11 +122,16 @@ func (m Manager) Status(service string) (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
+	bypassDomains, err := m.readBypassDomains(service)
+	if err != nil {
+		return Status{}, err
+	}
 	return Status{
 		NetworkService: service,
 		Web:            web,
 		HTTPS:          https,
 		SOCKS:          socks,
+		BypassDomains:  bypassDomains,
 	}, nil
 }
 
@@ -142,6 +153,17 @@ func (m Manager) readProxy(service, subcommand string) (ProxyState, error) {
 		return ProxyState{}, err
 	}
 	return parseProxyState(out), nil
+}
+
+func (m Manager) readBypassDomains(service string) ([]string, error) {
+	out, err := m.runner.Run("networksetup", "-getproxybypassdomains", service)
+	if err != nil {
+		if looksUnavailable(out) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return parseBypassDomains(out), nil
 }
 
 func parseProxyState(out string) ProxyState {
@@ -172,4 +194,26 @@ func looksUnavailable(out string) bool {
 	return strings.Contains(lower, "authorization") ||
 		strings.Contains(lower, "not authorized") ||
 		strings.Contains(lower, "failed")
+}
+
+func parseBypassDomains(out string) []string {
+	lines := strings.Split(out, "\n")
+	domains := make([]string, 0, len(lines))
+	seen := map[string]bool{}
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "aren't any bypass domains") {
+			return nil
+		}
+		if seen[line] {
+			continue
+		}
+		seen[line] = true
+		domains = append(domains, line)
+	}
+	return domains
 }

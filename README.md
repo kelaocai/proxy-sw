@@ -13,7 +13,7 @@ Version 1 now focuses on shell proxy environment management with automatic `no_p
 - Stores defaults in `~/.config/proxy-sw/config.yaml`
 - Ships as a single Go binary
 - Designed for Homebrew tap installation
-- Keeps macOS system proxy support under `proxy-sw system ...` for advanced use
+- Keeps macOS system proxy support under `proxy-sw system ...` for advanced use, including syncing generated `no_proxy` values to macOS proxy bypass domains on `system on`
 
 Out of scope for v1:
 
@@ -87,7 +87,8 @@ Advanced usage:
 - `on` automatically regenerates `no_proxy` from current local private networks
 - `set --no-proxy-add a,b` adds custom `no_proxy` entries
 - `set --no-proxy-clear-custom` clears custom `no_proxy` entries
-- `proxy-sw system on|off|status` manages macOS system proxy when you explicitly need it
+- `proxy-sw system on|off|status` manages macOS system proxy when you explicitly need it, and `system on` syncs the generated `no_proxy` list into macOS proxy bypass domains
+- `proxy-sw system status` shows the current macOS bypass domain list as `bypass`
 - `proxy-sw list` and `proxy-sw use "Wi-Fi"` are only needed for `proxy-sw system ...`
 
 ## Config

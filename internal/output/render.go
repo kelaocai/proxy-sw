@@ -21,11 +21,16 @@ type Check struct {
 }
 
 func (r Renderer) SystemStatus(w io.Writer, status macos.Status, expectedHost string, expectedPort int) error {
-	_, err := fmt.Fprintf(w, "%s\n%s\n%s\n%s\n%s\n",
+	bypass := "-"
+	if len(status.BypassDomains) > 0 {
+		bypass = strings.Join(status.BypassDomains, ",")
+	}
+	_, err := fmt.Fprintf(w, "%s\n%s\n%s\n%s\n%s\n%s\n",
 		r.header("System Proxy", status.NetworkService),
 		r.systemLine("web", status.Web),
 		r.systemLine("https", status.HTTPS),
 		r.systemLine("socks", status.SOCKS),
+		r.kvLine("bypass", bypass),
 		r.endpoint(expectedHost, expectedPort),
 	)
 	return err

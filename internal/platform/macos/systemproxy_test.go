@@ -58,6 +58,7 @@ func TestStatusUnavailable(t *testing.T) {
 			"networksetup -getwebproxy Wi-Fi":           "AuthorizationCreate() failed: -60008",
 			"networksetup -getsecurewebproxy Wi-Fi":     "Enabled: Yes\nServer: 127.0.0.1\nPort: 7897\n",
 			"networksetup -getsocksfirewallproxy Wi-Fi": "Enabled: No\nServer: 127.0.0.1\nPort: 7897\n",
+			"networksetup -getproxybypassdomains Wi-Fi": "localhost\n*.home.arpa\n",
 		},
 		errs: map[string]error{
 			"networksetup -getwebproxy Wi-Fi": fmt.Errorf("exit status 1"),
@@ -77,15 +78,36 @@ func TestStatusUnavailable(t *testing.T) {
 	if status.SOCKS.Enabled {
 		t.Fatal("socks proxy should be disabled")
 	}
+	if got := strings.Join(status.BypassDomains, ","); got != "localhost,*.home.arpa" {
+		t.Fatalf("unexpected bypass domains: %q", got)
+	}
 }
 
 func TestEnableRunsAllCommands(t *testing.T) {
 	runner := &fakeRunner{outputs: map[string]string{}}
 	manager := NewManager(runner)
-	if err := manager.Enable("Wi-Fi", "127.0.0.1", 7897); err != nil {
+	if err := manager.Enable("Wi-Fi", "127.0.0.1", 7897, []string{"localhost", "*.home.arpa"}); err != nil {
 		t.Fatalf("Enable() error = %v", err)
 	}
-	if len(runner.calls) != 6 {
-		t.Fatalf("Enable() calls = %d, want 6", len(runner.calls))
+	if len(runner.calls) != 7 {
+		t.Fatalf("Enable() calls = %d, want 7", len(runner.calls))
+	}
+	if runner.calls[6] != "networksetup -setproxybypassdomains Wi-Fi localhost *.home.arpa" {
+		t.Fatalf("unexpected bypass command: %q", runner.calls[6])
+	}
+}
+
+func TestParseBypassDomains(t *testing.T) {
+	got := parseBypassDomains("localhost\n*.home.arpa\nlocalhost\n")
+	want := "localhost,*.home.arpa"
+	if joined := strings.Join(got, ","); joined != want {
+		t.Fatalf("parseBypassDomains() = %q, want %q", joined, want)
+	}
+}
+
+func TestParseBypassDomainsEmpty(t *testing.T) {
+	got := parseBypassDomains("There aren't any bypass domains set on Wi-Fi.\n")
+	if len(got) != 0 {
+		t.Fatalf("parseBypassDomains() = %+v, want empty", got)
 	}
 }
