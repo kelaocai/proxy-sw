@@ -21,9 +21,11 @@ const (
 )
 
 type Env struct {
-	Host    string
-	Port    int
-	NoProxy []string
+	HTTPHost  string
+	HTTPPort  int
+	SOCKSHost string
+	SOCKSPort int
+	NoProxy   []string
 }
 
 type Status struct {
@@ -121,8 +123,17 @@ func (Manager) Status(path string, shellType Type) (Status, error) {
 }
 
 func buildBlock(shellType Type, env Env) string {
-	httpURL := fmt.Sprintf("http://%s:%d", env.Host, env.Port)
-	socksURL := fmt.Sprintf("socks5://%s:%d", env.Host, env.Port)
+	if env.HTTPHost == "" || env.HTTPPort <= 0 {
+		return ""
+	}
+	socksHost := env.SOCKSHost
+	socksPort := env.SOCKSPort
+	if socksHost == "" || socksPort <= 0 {
+		socksHost = env.HTTPHost
+		socksPort = env.HTTPPort
+	}
+	httpURL := fmt.Sprintf("http://%s:%d", env.HTTPHost, env.HTTPPort)
+	socksURL := fmt.Sprintf("socks5://%s:%d", socksHost, socksPort)
 	noProxy := strings.Join(env.NoProxy, ",")
 	lines := []string{ManagedStart}
 	switch shellType {

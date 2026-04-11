@@ -99,25 +99,41 @@ func (a App) runOn(args []string) error {
 	}
 	fs := flag.NewFlagSet("on", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	host := fs.String("host", cfg.Host, "")
-	port := fs.Int("port", cfg.Port, "")
+	httpHost := fs.String("http-host", cfg.HTTP.Host, "")
+	httpPort := fs.Int("http-port", cfg.HTTP.Port, "")
+	socksHost := fs.String("socks5-host", cfg.SOCKS5.Host, "")
+	socksPort := fs.Int("socks5-port", cfg.SOCKS5.Port, "")
+	host := fs.String("host", cfg.HTTP.Host, "")
+	port := fs.Int("port", cfg.HTTP.Port, "")
 	if err := fs.Parse(args); err != nil {
 		return exitError{code: 2, err: err}
 	}
-	cfg.Host = *host
-	cfg.Port = *port
+	if flagWasPassed(fs, "host") || flagWasPassed(fs, "port") {
+		cfg.HTTP.Host = *host
+		cfg.HTTP.Port = *port
+	} else {
+		cfg.HTTP.Host = *httpHost
+		cfg.HTTP.Port = *httpPort
+	}
+	cfg.SOCKS5.Host = *socksHost
+	cfg.SOCKS5.Port = *socksPort
 	cfg, shellType, shellPath, err := a.mergeShellCustomNoProxy(cfg)
 	if err != nil {
 		return err
+	}
+	if err := validateHTTPProxy(cfg.HTTP); err != nil {
+		return exitError{code: 2, err: err}
 	}
 	noProxy, _, err := a.currentNoProxy(cfg.NoProxyCustom)
 	if err != nil {
 		return exitError{code: 1, err: err}
 	}
 	if err := a.shellManager.Enable(shellPath, shellType, shell.Env{
-		Host:    cfg.Host,
-		Port:    cfg.Port,
-		NoProxy: noProxy,
+		HTTPHost:  cfg.HTTP.Host,
+		HTTPPort:  cfg.HTTP.Port,
+		SOCKSHost: cfg.SOCKS5.Host,
+		SOCKSPort: cfg.SOCKS5.Port,
+		NoProxy:   noProxy,
 	}); err != nil {
 		return exitError{code: 1, err: err}
 	}
@@ -184,8 +200,12 @@ func (a App) runSet(args []string) error {
 	}
 	fs := flag.NewFlagSet("set", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	host := fs.String("host", cfg.Host, "")
-	port := fs.Int("port", cfg.Port, "")
+	httpHost := fs.String("http-host", cfg.HTTP.Host, "")
+	httpPort := fs.Int("http-port", cfg.HTTP.Port, "")
+	socksHost := fs.String("socks5-host", cfg.SOCKS5.Host, "")
+	socksPort := fs.Int("socks5-port", cfg.SOCKS5.Port, "")
+	host := fs.String("host", cfg.HTTP.Host, "")
+	port := fs.Int("port", cfg.HTTP.Port, "")
 	service := fs.String("service", cfg.NetworkService, "")
 	noProxyAdd := fs.String("no-proxy-add", "", "")
 	clearNoProxy := fs.Bool("no-proxy-clear-custom", false, "")
@@ -193,12 +213,27 @@ func (a App) runSet(args []string) error {
 		return exitError{code: 2, err: err}
 	}
 	changed := false
-	if *host != cfg.Host || *port != cfg.Port {
+	if *host != cfg.HTTP.Host || *port != cfg.HTTP.Port {
 		if *host == "" || *port <= 0 {
 			return exitError{code: 2, err: errors.New("set requires a valid --host and --port")}
 		}
-		cfg.Host = *host
-		cfg.Port = *port
+		cfg.HTTP.Host = *host
+		cfg.HTTP.Port = *port
+		changed = true
+	} else if *httpHost != cfg.HTTP.Host || *httpPort != cfg.HTTP.Port {
+		if *httpHost == "" || *httpPort <= 0 {
+			return exitError{code: 2, err: errors.New("set requires a valid --http-host and --http-port")}
+		}
+		cfg.HTTP.Host = *httpHost
+		cfg.HTTP.Port = *httpPort
+		changed = true
+	}
+	if *socksHost != cfg.SOCKS5.Host || *socksPort != cfg.SOCKS5.Port {
+		if (*socksHost == "") != (*socksPort == 0) || (*socksHost != "" && *socksPort <= 0) {
+			return exitError{code: 2, err: errors.New("set requires both --socks5-host and --socks5-port")}
+		}
+		cfg.SOCKS5.Host = *socksHost
+		cfg.SOCKS5.Port = *socksPort
 		changed = true
 	}
 	if *service != "" {
@@ -232,8 +267,11 @@ func (a App) runSet(args []string) error {
 	if err := a.saveConfig(cfg); err != nil {
 		return err
 	}
-	_, writeErr := fmt.Fprintf(a.stdout, "saved host=%s port=%d\n", cfg.Host, cfg.Port)
-	return writeErr
+	writeErr := writeSavedConfig(a.stdout, cfg)
+	if writeErr != nil {
+		return writeErr
+	}
+	return nil
 }
 
 func (a App) runList() error {
@@ -289,7 +327,7 @@ func (a App) runDoctor() error {
 	noProxy := network.GenerateNoProxyList(networks, cfg.NoProxyCustom)
 	checks = append(checks, output.Check{Name: "no_proxy", Status: "on", Details: fmt.Sprintf("%d entries", len(noProxy))})
 
-	target := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	target := fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port)
 	if conn, dialErr := net.DialTimeout("tcp", target, 1200*time.Millisecond); dialErr != nil {
 		checks = append(checks, output.Check{Name: "port", Status: "warn", Details: target + " unreachable"})
 	} else {
@@ -323,14 +361,14 @@ func (a App) runSystemOn(args []string) error {
 	}
 	fs := flag.NewFlagSet("system on", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	host := fs.String("host", cfg.Host, "")
-	port := fs.Int("port", cfg.Port, "")
+	host := fs.String("host", cfg.HTTP.Host, "")
+	port := fs.Int("port", cfg.HTTP.Port, "")
 	service := fs.String("service", cfg.NetworkService, "")
 	if err := fs.Parse(args); err != nil {
 		return exitError{code: 2, err: err}
 	}
-	cfg.Host = *host
-	cfg.Port = *port
+	cfg.HTTP.Host = *host
+	cfg.HTTP.Port = *port
 	cfg, _, _, err = a.mergeShellCustomNoProxy(cfg)
 	if err != nil {
 		return err
@@ -350,7 +388,7 @@ func (a App) runSystemOn(args []string) error {
 	if err := a.saveConfig(cfg); err != nil {
 		return err
 	}
-	return a.renderSystemStatus(config.Config{Host: *host, Port: *port, NetworkService: resolvedService})
+	return a.renderSystemStatus(config.Config{HTTP: config.Proxy{Host: *host, Port: *port}, NetworkService: resolvedService})
 }
 
 func (a App) runSystemOff(args []string) error {
@@ -371,7 +409,7 @@ func (a App) runSystemOff(args []string) error {
 	if err := a.system.Disable(resolvedService); err != nil {
 		return exitError{code: 1, err: err}
 	}
-	return a.renderSystemStatus(config.Config{Host: cfg.Host, Port: cfg.Port, NetworkService: resolvedService})
+	return a.renderSystemStatus(config.Config{HTTP: cfg.HTTP, SOCKS5: cfg.SOCKS5, NetworkService: resolvedService})
 }
 
 func (a App) runSystemStatus(args []string) error {
@@ -517,7 +555,7 @@ func (a App) renderSystemStatus(cfg config.Config) error {
 		return exitError{code: 1, err: err}
 	}
 	renderer := output.Renderer{Color: isTerminal(a.stdout) && os.Getenv("NO_COLOR") == ""}
-	return renderer.SystemStatus(a.stdout, status, cfg.Host, cfg.Port)
+	return renderer.SystemStatus(a.stdout, status, cfg.HTTP.Host, cfg.HTTP.Port)
 }
 
 func (a App) saveService(name string) error {
@@ -542,12 +580,12 @@ func (a App) saveService(name string) error {
 
 func (a App) printHelp() {
 	fmt.Fprintln(a.stdout, "proxy-sw commands:")
-	fmt.Fprintln(a.stdout, "  on [--host HOST] [--port PORT]")
+	fmt.Fprintln(a.stdout, "  on [--http-host HOST] [--http-port PORT] [--socks5-host HOST] [--socks5-port PORT]")
 	fmt.Fprintln(a.stdout, "  off")
 	fmt.Fprintln(a.stdout, "  status")
 	fmt.Fprintln(a.stdout, "  detect")
 	fmt.Fprintln(a.stdout, "  doctor")
-	fmt.Fprintln(a.stdout, "  set --host HOST --port PORT [--no-proxy-add VALUES] [--no-proxy-clear-custom]")
+	fmt.Fprintln(a.stdout, "  set --http-host HOST --http-port PORT [--socks5-host HOST --socks5-port PORT] [--no-proxy-add VALUES] [--no-proxy-clear-custom]")
 	fmt.Fprintln(a.stdout, "  list")
 	fmt.Fprintln(a.stdout, "  use NAME")
 	fmt.Fprintln(a.stdout, "  system on|off|status [--service NAME]")
@@ -582,6 +620,36 @@ func mergeStrings(parts ...[]string) []string {
 		}
 	}
 	return out
+}
+
+func flagWasPassed(fs *flag.FlagSet, name string) bool {
+	found := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func validateHTTPProxy(proxy config.Proxy) error {
+	if proxy.Host == "" || proxy.Port <= 0 {
+		return errors.New("http proxy requires a valid host and port")
+	}
+	return nil
+}
+
+func writeSavedConfig(w io.Writer, cfg config.Config) error {
+	if _, err := fmt.Fprintf(w, "saved http=%s:%d", cfg.HTTP.Host, cfg.HTTP.Port); err != nil {
+		return err
+	}
+	if cfg.SOCKS5.Host != "" && cfg.SOCKS5.Port > 0 {
+		if _, err := fmt.Fprintf(w, " socks5=%s:%d", cfg.SOCKS5.Host, cfg.SOCKS5.Port); err != nil {
+			return err
+		}
+	}
+	_, err := fmt.Fprintln(w)
+	return err
 }
 
 func preserveCustomNoProxy(existingCSV string, networks []network.LocalNetwork, configured []string) []string {

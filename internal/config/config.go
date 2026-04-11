@@ -15,9 +15,14 @@ const (
 	DefaultPort = 7897
 )
 
+type Proxy struct {
+	Host string
+	Port int
+}
+
 type Config struct {
-	Host           string
-	Port           int
+	HTTP           Proxy
+	SOCKS5         Proxy
 	NetworkService string
 	ShellType      string
 	NoProxyCustom  []string
@@ -25,8 +30,10 @@ type Config struct {
 
 func Default() Config {
 	return Config{
-		Host: DefaultHost,
-		Port: DefaultPort,
+		HTTP: Proxy{
+			Host: DefaultHost,
+			Port: DefaultPort,
+		},
 	}
 }
 
@@ -52,9 +59,11 @@ func Load(path string) (Config, error) {
 	scanner := bufio.NewScanner(data)
 	lineNo := 0
 	var currentList string
+	var currentSection string
 	for scanner.Scan() {
 		lineNo++
-		line := strings.TrimSpace(scanner.Text())
+		rawLine := scanner.Text()
+		line := strings.TrimSpace(rawLine)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -72,6 +81,25 @@ func Load(path string) (Config, error) {
 			continue
 		}
 
+		if strings.HasPrefix(rawLine, "  ") {
+			if currentSection == "" {
+				return Config{}, fmt.Errorf("unexpected nested config on line %d", lineNo)
+			}
+			key, value, ok := strings.Cut(line, ":")
+			if !ok {
+				return Config{}, fmt.Errorf("invalid config line %d", lineNo)
+			}
+			key = strings.TrimSpace(key)
+			value = strings.Trim(strings.TrimSpace(value), `"'`)
+			if value == "" {
+				return Config{}, fmt.Errorf("%s.%s cannot be empty", currentSection, key)
+			}
+			if err := setProxyValue(&cfg, currentSection, key, value); err != nil {
+				return Config{}, err
+			}
+			continue
+		}
+
 		key, value, ok := strings.Cut(line, ":")
 		if !ok {
 			return Config{}, fmt.Errorf("invalid config line %d", lineNo)
@@ -80,7 +108,12 @@ func Load(path string) (Config, error) {
 		value = strings.Trim(strings.TrimSpace(value), `"'`)
 		if value == "" {
 			currentList = key
+			currentSection = ""
 			switch key {
+			case "http", "socks5":
+				currentList = ""
+				currentSection = key
+				continue
 			case "no_proxy_custom":
 				cfg.NoProxyCustom = nil
 				continue
@@ -89,18 +122,19 @@ func Load(path string) (Config, error) {
 			}
 		}
 		currentList = ""
+		currentSection = ""
 		switch key {
 		case "host":
 			if value == "" {
 				return Config{}, fmt.Errorf("host cannot be empty")
 			}
-			cfg.Host = value
+			cfg.HTTP.Host = value
 		case "port":
 			port, err := strconv.Atoi(value)
 			if err != nil || port <= 0 {
 				return Config{}, fmt.Errorf("invalid port %q", value)
 			}
-			cfg.Port = port
+			cfg.HTTP.Port = port
 		case "network_service":
 			cfg.NetworkService = value
 		case "shell_type":
@@ -116,19 +150,31 @@ func Load(path string) (Config, error) {
 }
 
 func Save(path string, cfg Config) error {
-	if cfg.Host == "" {
+	if cfg.HTTP.Host == "" {
 		return fmt.Errorf("host cannot be empty")
 	}
-	if cfg.Port <= 0 {
+	if cfg.HTTP.Port <= 0 {
 		return fmt.Errorf("port must be greater than zero")
+	}
+	if cfg.SOCKS5.Host != "" && cfg.SOCKS5.Port <= 0 {
+		return fmt.Errorf("socks5 port must be greater than zero")
+	}
+	if cfg.SOCKS5.Port > 0 && cfg.SOCKS5.Host == "" {
+		return fmt.Errorf("socks5 host cannot be empty")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 	var content strings.Builder
 	content.WriteString("# proxy-sw configuration\n")
-	content.WriteString(fmt.Sprintf("host: %s\n", cfg.Host))
-	content.WriteString(fmt.Sprintf("port: %d\n", cfg.Port))
+	content.WriteString("http:\n")
+	content.WriteString(fmt.Sprintf("  host: %s\n", cfg.HTTP.Host))
+	content.WriteString(fmt.Sprintf("  port: %d\n", cfg.HTTP.Port))
+	if cfg.SOCKS5.Host != "" && cfg.SOCKS5.Port > 0 {
+		content.WriteString("socks5:\n")
+		content.WriteString(fmt.Sprintf("  host: %s\n", cfg.SOCKS5.Host))
+		content.WriteString(fmt.Sprintf("  port: %d\n", cfg.SOCKS5.Port))
+	}
 	if cfg.NetworkService != "" {
 		content.WriteString(fmt.Sprintf("network_service: %s\n", cfg.NetworkService))
 	}
@@ -143,6 +189,31 @@ func Save(path string, cfg Config) error {
 	}
 	if err := os.WriteFile(path, []byte(content.String()), 0o644); err != nil {
 		return fmt.Errorf("write config: %w", err)
+	}
+	return nil
+}
+
+func setProxyValue(cfg *Config, section, key, value string) error {
+	proxy := &cfg.HTTP
+	switch section {
+	case "http":
+		proxy = &cfg.HTTP
+	case "socks5":
+		proxy = &cfg.SOCKS5
+	default:
+		return fmt.Errorf("unknown config section %q", section)
+	}
+	switch key {
+	case "host":
+		proxy.Host = value
+	case "port":
+		port, err := strconv.Atoi(value)
+		if err != nil || port <= 0 {
+			return fmt.Errorf("invalid port %q", value)
+		}
+		proxy.Port = port
+	default:
+		return fmt.Errorf("unknown config key %q.%s", section, key)
 	}
 	return nil
 }

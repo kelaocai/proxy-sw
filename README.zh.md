@@ -62,7 +62,7 @@ proxy-sw --help
 ## 常用命令
 
 ```bash
-proxy-sw set --host 127.0.0.1 --port 7897
+proxy-sw set --http-host 127.0.0.1 --http-port 7897
 proxy-sw on
 proxy-sw detect
 proxy-sw doctor
@@ -75,7 +75,7 @@ proxy-sw off
 大多数用户只需要这几步：
 
 ```bash
-proxy-sw set --host 127.0.0.1 --port 7897
+proxy-sw set --http-host 127.0.0.1 --http-port 7897
 proxy-sw on
 proxy-sw detect
 proxy-sw doctor
@@ -85,6 +85,7 @@ proxy-sw doctor
 
 - `set` 会把默认代理地址保存到 `~/.config/proxy-sw/config.yaml`
 - `on` 会把代理环境变量写入当前 shell 的配置文件，例如 `~/.zshrc`
+- `http_proxy` / `https_proxy` 使用 `http` 配置；`all_proxy` 使用可选的 `socks5` 配置，如果未设置则回退到 `http`
 - `detect` 会探测本地网络并生成合适的 `no_proxy`
 - `doctor` 会做基础诊断，帮助确认当前配置是否可用
 
@@ -105,8 +106,12 @@ proxy-sw off
 示例：
 
 ```yaml
-host: 127.0.0.1
-port: 7897
+http:
+  host: 127.0.0.1
+  port: 6152
+socks5:
+  host: 127.0.0.1
+  port: 6153
 shell_type: zsh
 no_proxy_custom:
   - internal.example.com
@@ -116,11 +121,16 @@ network_service: Wi-Fi
 
 字段说明：
 
-- `host`：代理主机地址
-- `port`：代理端口
+- `http`：`http_proxy` 和 `https_proxy` 使用的代理配置
+- `socks5`：`all_proxy` 使用的代理配置，可选；未配置时回退到 `http`
 - `shell_type`：当前 shell 类型，例如 `zsh`
 - `no_proxy_custom`：额外追加的 `no_proxy` 规则
 - `network_service`：系统代理使用的默认网络服务，例如 `Wi-Fi`
+
+兼容性说明：
+
+- 旧版顶层 `host` / `port` 仍然可以读取，会被当作 `http` 配置
+- 新版本保存配置时会写成 `http` / `socks5` 双对象结构
 
 ## Shell 配置写入位置
 

@@ -14,7 +14,13 @@ func TestEnableReplaceAndDisable(t *testing.T) {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	manager := NewManager()
-	env := Env{Host: "127.0.0.1", Port: 7897, NoProxy: []string{"localhost", "127.0.0.1"}}
+	env := Env{
+		HTTPHost:   "127.0.0.1",
+		HTTPPort:   7897,
+		SOCKSHost:  "127.0.0.1",
+		SOCKSPort:  6153,
+		NoProxy:    []string{"localhost", "127.0.0.1"},
+	}
 	if err := manager.Enable(path, Zsh, env); err != nil {
 		t.Fatalf("Enable() error = %v", err)
 	}
@@ -38,6 +44,60 @@ func TestEnableReplaceAndDisable(t *testing.T) {
 	}
 	if strings.Contains(string(data), ManagedStart) {
 		t.Fatalf("managed block still present: %s", string(data))
+	}
+}
+
+func TestEnableUsesIndependentSocksProxy(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".zshrc")
+	manager := NewManager()
+	env := Env{
+		HTTPHost:  "127.0.0.1",
+		HTTPPort:  6152,
+		SOCKSHost: "127.0.0.1",
+		SOCKSPort: 6153,
+		NoProxy:   []string{"localhost", "127.0.0.1"},
+	}
+	if err := manager.Enable(path, Zsh, env); err != nil {
+		t.Fatalf("Enable() error = %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `export http_proxy="http://127.0.0.1:6152"`) {
+		t.Fatalf("http proxy not written correctly: %s", content)
+	}
+	if !strings.Contains(content, `export all_proxy="socks5://127.0.0.1:6153"`) {
+		t.Fatalf("socks proxy not written correctly: %s", content)
+	}
+}
+
+func TestEnableFallsBackToHTTPForSocksProxy(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".zshrc")
+	manager := NewManager()
+	env := Env{
+		HTTPHost: "127.0.0.1",
+		HTTPPort: 6152,
+		NoProxy:  []string{"localhost", "127.0.0.1"},
+	}
+	if err := manager.Enable(path, Zsh, env); err != nil {
+		t.Fatalf("Enable() error = %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if !strings.Contains(string(data), `export all_proxy="socks5://127.0.0.1:6152"`) {
+		t.Fatalf("expected socks fallback to http endpoint: %s", string(data))
+	}
+}
+
+func TestBuildBlockRequiresHTTPProxy(t *testing.T) {
+	if got := buildBlock(Zsh, Env{SOCKSHost: "127.0.0.1", SOCKSPort: 6153}); got != "" {
+		t.Fatalf("buildBlock() = %q, want empty string without http proxy", got)
 	}
 }
 

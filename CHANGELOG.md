@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-04-11
+
 ### Fixed
 - Keep the bundled Homebrew formula in the source repository in sync during tagged releases
+- Allow `all_proxy` to use a dedicated `socks5` endpoint instead of always reusing the HTTP port
 
 ### Changed
 - Document `brew update && brew upgrade proxy-sw` for upgrading existing Homebrew installs
+- Store proxy endpoints as `http` and `socks5` objects in config, while continuing to read legacy top-level `host` and `port`
 
 ## [0.1.3] - 2026-03-25
 

@@ -37,7 +37,7 @@ cd /Users/kelaocai/code/proxy-sw
 make install-local
 export PATH="$HOME/.local/bin:$PATH"
 proxy-sw --help
-proxy-sw set --host 127.0.0.1 --port 7897
+proxy-sw set --http-host 127.0.0.1 --http-port 7897
 proxy-sw detect
 proxy-sw doctor
 make uninstall-local
@@ -49,7 +49,7 @@ After the tag workflow completes:
 brew tap kelaocai/tap
 brew install proxy-sw
 proxy-sw --help
-proxy-sw set --host 127.0.0.1 --port 7897
+proxy-sw set --http-host 127.0.0.1 --http-port 7897
 proxy-sw detect
 proxy-sw doctor
 ```

@@ -62,7 +62,7 @@ proxy-sw --help
 ## Commands
 
 ```bash
-proxy-sw set --host 127.0.0.1 --port 7897
+proxy-sw set --http-host 127.0.0.1 --http-port 7897
 proxy-sw on
 proxy-sw detect
 proxy-sw doctor
@@ -75,13 +75,14 @@ proxy-sw off
 For most users, this is the full setup flow:
 
 ```bash
-proxy-sw set --host 127.0.0.1 --port 7897
+proxy-sw set --http-host 127.0.0.1 --http-port 7897
 proxy-sw on
 proxy-sw detect
 proxy-sw doctor
 ```
 
 This saves your proxy defaults to `~/.config/proxy-sw/config.yaml`, and `proxy-sw on` writes the managed proxy block into your shell config file such as `~/.zshrc`.
+`http_proxy` and `https_proxy` use the `http` endpoint, while `all_proxy` uses the optional `socks5` endpoint and falls back to `http` if `socks5` is not configured.
 
 Turn it off later with:
 
@@ -109,14 +110,20 @@ Default config path used by `set`, `on`, `status`, `detect`, `doctor`, and `syst
 Example:
 
 ```yaml
-host: 127.0.0.1
-port: 7897
+http:
+  host: 127.0.0.1
+  port: 6152
+socks5:
+  host: 127.0.0.1
+  port: 6153
 shell_type: zsh
 no_proxy_custom:
   - internal.example.com
   - "*.corp.local"
 network_service: Wi-Fi
 ```
+
+Legacy top-level `host` and `port` are still read as the HTTP endpoint for backwards compatibility. New saves use the nested structure above.
 
 ## Release
 

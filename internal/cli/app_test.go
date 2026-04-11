@@ -36,6 +36,9 @@ func TestHelpShowsTopLevelListAndUse(t *testing.T) {
 	if !strings.Contains(got, "  system on|off|status") {
 		t.Fatalf("help missing system command: %s", got)
 	}
+	if !strings.Contains(got, "  set --http-host HOST --http-port PORT [--socks5-host HOST --socks5-port PORT] [--no-proxy-add VALUES] [--no-proxy-clear-custom]") {
+		t.Fatalf("help missing updated set usage: %s", got)
+	}
 	if strings.Contains(got, "service list") || strings.Contains(got, "service use") {
 		t.Fatalf("help still contains legacy service commands: %s", got)
 	}
