@@ -75,7 +75,7 @@ proxy-sw off
 For most users, this is the full setup flow:
 
 ```bash
-proxy-sw set --http-host 127.0.0.1 --http-port 7897
+proxy-sw set --http-host 127.0.0.1 --http-port 6152 --socks5-host 127.0.0.1 --socks5-port 6153
 proxy-sw on
 proxy-sw detect
 proxy-sw doctor
